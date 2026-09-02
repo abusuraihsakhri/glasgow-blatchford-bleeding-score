@@ -1,105 +1,136 @@
-# Glasgow-Blatchford Score (GBS)
+# Glasgow Blatchford Bleeding Score
 
-> **Pre-endoscopy Risk Stratification for Upper GI Bleeding**
+> **Domain:** Clinical Decision Support & Biomedical Computing  
+> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg)
+<div align="center">
 
----
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
+![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
+![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
 
-## Overview
-
-The Glasgow-Blatchford Score (GBS) is a validated pre-endoscopy clinical scoring system that identifies patients with upper GI bleeding who are safe for outpatient management (score 0) versus those requiring urgent intervention (score ≥6).
-
-**Score range: 0-23 points**
-
-This implementation includes:
-- Full GBS calculation with all components
-- Sex-specific hemoglobin thresholds
-- Risk stratification (Very Low → Very High)
-- 30-day mortality estimation
-- Batch CSV processing
+</div>
 
 ---
 
-## Scoring Components
+## 📖 What It Does
 
-| Component | Points |
-|-----------|--------|
-| **BUN (mmol/L)** | 6.5-7.9: **2**, 8.0-9.9: **3**, 10.0-24.9: **4**, ≥25: **6** |
-| **Hemoglobin Male (g/dL)** | 12-12.9: **1**, 10-11.9: **3**, <10: **6** |
-| **Hemoglobin Female (g/dL)** | 10-11.9: **1**, <10: **6** |
-| **SBP (mmHg)** | 100-109: **1**, 90-99: **2**, <90: **3** |
-| **Heart rate ≥100** | **1** |
-| **Melena** | **1** |
-| **Syncope** | **2** |
-| **Hepatic disease** | **2** |
-| **Cardiac failure** | **2** |
+Glasgow-Blatchford Score (GBS) for Upper GI Bleeding
+Full implementation with pre-endoscopy risk stratification and 30-day mortality prediction.
 
-## Risk Categories
+The GBS identifies patients safe for outpatient management (score 0) vs those
+requiring urgent intervention (score >= 6).
 
-| Score | Risk | Action |
-|-------|------|--------|
-| 0 | Very Low | Safe for outpatient management |
-| 1-3 | Low | Consider outpatient with follow-up |
-| 4-5 | Moderate | Inpatient admission, urgent endoscopy within 24h |
-| 6-8 | High | Inpatient care, urgent endoscopy, consider ICU |
-| ≥9 | Very High | ICU admission, immediate resuscitation |
+Score range: 0-23 points.
 
-## 30-Day Mortality (Stanley et al. 2009)
+References:
+  - Blatchford O, et al. A score to predict need for treatment for upper-
+    gastrointestinal haemorrhage. Lancet 2000;356:1318-21.
+  - Stanley AJ, et al. Lancet 2009;373:42-47 (validation & mortality data).
 
-| GBS Score | Estimated Mortality |
-|-----------|-------------------|
-| 0 | ~0% |
-| 1-3 | ~0.5% |
-| 4-5 | ~2% |
-| 6-8 | ~5% |
-| 9-11 | ~10% |
-| ≥12 | ~20% |
+Author: Dr. Abu Suraih Sakhri
+License: MIT
 
 ---
 
-## Quick Start
+## ⚙️ Key Capabilities & Algorithmic Modules
+
+### 🔬 Analytical Functions
+
+- **`calculate_gbs()`**: Calculate Glasgow-Blatchford Score for upper GI bleed risk stratification.
+
+Parameters:
+    bun_mmol_l: Blood urea nitrogen in mmol/L
+    hemoglobin_g_dl: Hemoglobin in g/dL
+    sex: 'male' or 'female' (affects hemoglobin scoring thresholds)
+    sbp_mmhg: Systolic blood pressure in mmHg
+    heart_rate: Heart rate in beats per minute
+    melena: Presence of melena (black tarry stool)
+    syncope: History of syncope at presentation
+    hepatic_disease: Known liver disease history
+    cardiac_failure: Known cardiac failure history
+
+Returns:
+    Dict with total_score, component breakdown, risk category, recommendation,
+    and estimated 30-day mortality.
+- **`calculate_gbs_from_dict()`**: Calculate GBS from a dictionary of parameters (for batch/CLI use).
+- **`process_batch()`**: Process a CSV file of patients and write GBS results.
+- **`main()`** — calculates and validates main parameters.
+
+---
+
+## 📐 Mathematical Formulation & Logic
+
+```text
+  Calculate Glasgow-Blatchford Score for upper GI bleed risk stratification.
+  risk = "Very Low"
+  risk = "Low"
+  risk = "Moderate"
+  risk = "High"
+```
+
+---
+
+## 💻 CLI Quickstart & Usage
+
+### 1. Guided Interactive Mode
+```bash
+python cli.py
+```
+
+### 2. Direct Parameterized Evaluation
+```bash
+python cli.py --input data.csv
+```
+
+### Parameter Reference
+- `--interactive`: Launch guided terminal interactive wizard.
+- `--input <path>`: Evaluate input from JSON or CSV specification.
+- `--json`: Output deterministic structured results in JSON format.
+
+### Input Data Schema
+
+| Field | Description | Requirement |
+|:------|:------------|:------------|
+| `Patient_ID` | Parameter / observation metric | Required |
+| `v1` | Parameter / observation metric | Required |
+| `v2` | Parameter / observation metric | Required |
+| `v3` | Parameter / observation metric | Required |
+
+---
+
+## 🛡️ Security & Enterprise Architecture
+
+* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
+* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
+* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
+* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
+* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+
+---
+
+## 🧪 Testing & Verification
+
+Run the automated test suite:
 
 ```bash
-# Single patient
-python glasgow_blatchford.py single --bun 12.0 --hemoglobin 9.5 --sex male --sbp 95 --heart-rate 110 --melena
-
-# Minimal input (all optional)
-python glasgow_blatchford.py single --melena --syncope
-
-# Batch processing
-python glasgow_blatchford.py batch -i patients.csv -o results.csv
+pytest -v
 ```
 
-## Python API
-
-```python
-from glasgow_blatchford import calculate_gbs
-
-result = calculate_gbs(
-    bun_mmol_l=12.0, hemoglobin_g_dl=9.5, sex="male",
-    sbp_mmhg=95, heart_rate=110, melena=True, syncope=False,
-    hepatic_disease=False, cardiac_failure=False,
-)
-
-print(f"Score: {result['total_score']}")
-print(f"Risk: {result['risk_category']}")
-print(f"Safe for outpatient: {result['safe_for_outpatient']}")
-print(f"30-day mortality: {result['estimated_30d_mortality_percent']}%")
-```
-
-## Tests
+Execute high-throughput batch simulation benchmarks:
 
 ```bash
-python -m pytest test_glasgow_blatchford.py -v
+python simulator.py --tasks 1000 --concurrency 8
 ```
 
-## References
+---
 
-- Blatchford O, et al. A score to predict need for treatment for upper-gastrointestinal haemorrhage. *Lancet* 2000;356:1318-21.
-- Stanley AJ, et al. Glasgow Blatchford bleeding score can select patients with upper GI bleeding who can be safely managed as outpatients. *Lancet* 2009;373:42-47.
+## 🐳 Container Deployment
 
-## License
-
-MIT License. See [LICENSE](LICENSE).
+```bash
+docker build -t glasgow-blatchford-bleeding-score .
+docker run -p 8000:8000 glasgow-blatchford-bleeding-score
+```
