@@ -263,5 +263,89 @@ class TestFromDict:
         assert result["total_score"] == 0
 
 
+# =============================================================================
+# Input Validation Tests
+# =============================================================================
+
+class TestInputValidation:
+    def test_negative_bun_raises(self):
+        with pytest.raises(ValueError, match="bun_mmol_l.*outside plausible range"):
+            calculate_gbs(bun_mmol_l=-5.0)
+
+    def test_extreme_bun_raises(self):
+        with pytest.raises(ValueError, match="bun_mmol_l.*outside plausible range"):
+            calculate_gbs(bun_mmol_l=150.0)
+
+    def test_negative_hemoglobin_raises(self):
+        with pytest.raises(ValueError, match="hemoglobin_g_dl.*outside plausible range"):
+            calculate_gbs(hemoglobin_g_dl=-1.0)
+
+    def test_extreme_hemoglobin_raises(self):
+        with pytest.raises(ValueError, match="hemoglobin_g_dl.*outside plausible range"):
+            calculate_gbs(hemoglobin_g_dl=50.0)
+
+    def test_negative_sbp_raises(self):
+        with pytest.raises(ValueError, match="sbp_mmhg.*outside plausible range"):
+            calculate_gbs(sbp_mmhg=-10.0)
+
+    def test_extreme_sbp_raises(self):
+        with pytest.raises(ValueError, match="sbp_mmhg.*outside plausible range"):
+            calculate_gbs(sbp_mmhg=400.0)
+
+    def test_negative_heart_rate_raises(self):
+        with pytest.raises(ValueError, match="heart_rate.*outside plausible range"):
+            calculate_gbs(heart_rate=-5.0)
+
+    def test_extreme_heart_rate_raises(self):
+        with pytest.raises(ValueError, match="heart_rate.*outside plausible range"):
+            calculate_gbs(heart_rate=500.0)
+
+    def test_invalid_sex_raises(self):
+        with pytest.raises(ValueError, match="sex must be"):
+            calculate_gbs(sex="unknown")
+
+    def test_nan_input_raises(self):
+        with pytest.raises(ValueError, match="must be a finite number"):
+            calculate_gbs(bun_mmol_l=float("nan"))
+
+    def test_inf_input_raises(self):
+        with pytest.raises(ValueError, match="must be a finite number"):
+            calculate_gbs(hemoglobin_g_dl=float("inf"))
+
+    def test_valid_boundary_values(self):
+        result = calculate_gbs(bun_mmol_l=0.0, hemoglobin_g_dl=30.0, sbp_mmhg=300.0, heart_rate=300.0)
+        assert result["total_score"] > 0
+
+    def test_none_values_accepted(self):
+        result = calculate_gbs(bun_mmol_l=None, hemoglobin_g_dl=None)
+        assert result["total_score"] == 0
+
+
+# =============================================================================
+# Extended CLI Tests
+# =============================================================================
+
+class TestExtendedCLI:
+    def test_cli_audit(self):
+        ret = main(["audit", "--task-id", "TEST-001"])
+        assert ret == 0
+
+    def test_cli_audit_critical(self):
+        ret = main(["audit", "--task-id", "TEST-002", "--critical"])
+        assert ret == 0
+
+    def test_cli_chat(self):
+        ret = main(["chat", "Explain", "scoring"])
+        assert ret == 0
+
+    def test_cli_chat_empty(self):
+        ret = main(["chat"])
+        assert ret == 0
+
+    def test_cli_verify_audit(self):
+        ret = main(["verify-audit"])
+        assert ret == 0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

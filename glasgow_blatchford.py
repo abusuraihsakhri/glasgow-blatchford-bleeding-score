@@ -25,6 +25,16 @@ import sys
 from typing import Dict, Any, List, Optional
 
 
+def _validate_clinical_param(name: str, value: Optional[float], min_val: float, max_val: float) -> None:
+    """Validate a clinical parameter is within physiologically plausible bounds."""
+    if value is None:
+        return
+    if not isinstance(value, (int, float)) or math.isnan(value) or math.isinf(value):
+        raise ValueError(f"{name} must be a finite number, got {value!r}")
+    if value < min_val or value > max_val:
+        raise ValueError(f"{name} value {value} is outside plausible range [{min_val}, {max_val}]")
+
+
 def calculate_gbs(
     bun_mmol_l: Optional[float] = None,
     hemoglobin_g_dl: Optional[float] = None,
@@ -53,7 +63,20 @@ def calculate_gbs(
     Returns:
         Dict with total_score, component breakdown, risk category, recommendation,
         and estimated 30-day mortality.
+
+    Raises:
+        ValueError: If any parameter is outside physiologically plausible bounds.
     """
+    # Validate inputs for patient safety
+    _validate_clinical_param("bun_mmol_l", bun_mmol_l, 0.0, 100.0)
+    _validate_clinical_param("hemoglobin_g_dl", hemoglobin_g_dl, 0.0, 30.0)
+    _validate_clinical_param("sbp_mmhg", sbp_mmhg, 0.0, 300.0)
+    _validate_clinical_param("heart_rate", heart_rate, 0.0, 300.0)
+
+    sex_lower = str(sex).lower().strip()
+    if sex_lower not in ("male", "female"):
+        raise ValueError(f"sex must be 'male' or 'female', got {sex!r}")
+
     components = {}
     total = 0
 
@@ -73,7 +96,7 @@ def calculate_gbs(
 
     # --- Hemoglobin scoring (sex-dependent) ---
     if hemoglobin_g_dl is not None:
-        if sex.lower() == "male":
+        if sex_lower == "male":
             if hemoglobin_g_dl < 10.0:
                 components["hemoglobin"] = 6
             elif hemoglobin_g_dl < 12.0:
@@ -245,6 +268,27 @@ def main(argv=None):
     p_batch.add_argument("-i", "--input", required=True, help="Input CSV file")
     p_batch.add_argument("-o", "--output", default="results.csv", help="Output CSV file")
 
+    # Audit task processing
+    p_audit = subparsers.add_parser("audit", help="Process a task payload through the supervisor")
+    p_audit.add_argument("--task-id", default="CLI-TASK-01", help="Task identifier")
+    p_audit.add_argument("--target-id", default="CLI-TARGET-01", help="Target identifier")
+    p_audit.add_argument("--primary-metric", type=float, default=10.0, help="Primary metric value")
+    p_audit.add_argument("--secondary-metric", type=float, default=2.0, help="Secondary metric value")
+    p_audit.add_argument("--status-descriptor", default="NOMINAL", help="Status descriptor")
+    p_audit.add_argument("--critical", action="store_true", help="Critical flag")
+
+    # Supervisory chat
+    p_chat = subparsers.add_parser("chat", help="Query the supervisory chat assistant")
+    p_chat.add_argument("query", nargs="*", help="Chat query text")
+
+    # Verify audit trail
+    subparsers.add_parser("verify-audit", help="Verify HMAC-SHA256 audit trail integrity")
+
+    # Serve (FastAPI)
+    p_serve = subparsers.add_parser("serve", help="Start FastAPI REST server")
+    p_serve.add_argument("--host", default="0.0.0.0", help="Host to bind")
+    p_serve.add_argument("--port", type=int, default=8000, help="Port to bind")
+
     args = parser.parse_args(argv)
 
     if args.command == "single":
@@ -258,6 +302,38 @@ def main(argv=None):
 
     elif args.command == "batch":
         process_batch(args.input, args.output)
+
+    elif args.command == "audit":
+        from agents.supervisor import SystemSupervisor
+        from agents.models import SystemTaskPayload
+        supervisor = SystemSupervisor(model_provider="mock")
+        payload = SystemTaskPayload(
+            task_id=args.task_id,
+            target_identifier=args.target_id,
+            primary_metric=args.primary_metric,
+            secondary_metric=args.secondary_metric,
+            status_descriptor=args.status_descriptor,
+            is_critical_flag=args.critical,
+        )
+        dossier = supervisor.process_task(payload)
+        print(json.dumps(dossier.to_dict(), indent=2, default=str))
+
+    elif args.command == "chat":
+        from agents.supervisor import SystemSupervisor
+        supervisor = SystemSupervisor(model_provider="mock")
+        query = " ".join(args.query) if args.query else "Explain specifications"
+        response = supervisor.query_supervisory_chat(query)
+        print(json.dumps({"response": response}, indent=2))
+
+    elif args.command == "verify-audit":
+        from agents.base import AuditLogger
+        valid = AuditLogger.verify_integrity()
+        print(json.dumps({"audit_valid": valid, "blocks": len(AuditLogger.get_trail())}, indent=2))
+
+    elif args.command == "serve":
+        import uvicorn
+        from agents.api import app
+        uvicorn.run(app, host=args.host, port=args.port)
 
     return 0
 
