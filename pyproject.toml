@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "glasgow-blatchford-bleeding-score"
-version = "3.0.0"
+version = "4.0.0"
 description = "Glasgow-Blatchford Score (GBS) for Upper GI Bleeding - Clinical Decision Support"
 readme = "README.md"
 license = {text = "MIT"}
