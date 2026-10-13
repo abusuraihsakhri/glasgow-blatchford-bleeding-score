@@ -13,6 +13,9 @@ VALID = {
     "sbp_mmhg": 125,
     "heart_rate": 78,
     "melena": True,
+    "syncope": False,
+    "hepatic_disease": False,
+    "cardiac_failure": False,
 }
 
 
@@ -33,6 +36,9 @@ def test_gbs_api_rejects_missing_and_invalid():
         assert client.post("/api/gbs", json=payload).status_code == 422
     missing = {k: v for k, v in VALID.items() if k != "hemoglobin_g_dl"}
     assert client.post("/api/gbs", json=missing).status_code == 422
+    omitted_feature = {k: v for k, v in VALID.items() if k != "syncope"}
+    assert client.post("/api/gbs", json=omitted_feature).status_code == 422
+    assert client.post("/api/gbs", json={**VALID, "patient_name": "Example Person"}).status_code == 422
 
 
 def test_audit_detects_tampered_signature_and_fields():
