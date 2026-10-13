@@ -148,7 +148,7 @@ class TestRiskStratification:
         assert result["total_score"] == 0
         assert result["safe_for_outpatient"] is True
         assert result["risk_category"] == "Very Low"
-        assert result["needs_intervention"] is False
+        assert result["needs_intervention"] is None
 
     def test_score_low_risk(self):
         result = calculate_gbs(melena=True, heart_rate=105)
@@ -359,7 +359,7 @@ def test_complete_score_one_is_very_low_risk():
     assert r["is_complete"] is True
     assert r["total_score"] == 1
     assert r["safe_for_outpatient"] is True
-    assert r["needs_intervention"] is False
+    assert r["needs_intervention"] is None
 
 
 def test_complete_score_two_not_very_low_risk():
