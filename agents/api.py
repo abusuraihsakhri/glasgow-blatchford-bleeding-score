@@ -3,7 +3,7 @@ FastAPI REST API Server for Glasgow Blatchford Bleeding Score.
 """
 from typing import Dict, Any, List, Literal
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from .base import AuditLogger, PHIGuard
 from glasgow_blatchford import calculate_gbs
 from .models import SystemTaskPayload, ConsensusDossier
@@ -24,16 +24,17 @@ class ChatRequest(BaseModel):
 
 
 class GBSRequest(BaseModel):
-    """Strict input: no identifiers or patient demographics are required."""
+    """Strict input: all GBS features are explicitly assessed."""
+    model_config = ConfigDict(extra="forbid")
     bun_mmol_l: float = Field(ge=0, le=100, allow_inf_nan=False)
     hemoglobin_g_dl: float = Field(ge=0, le=30, allow_inf_nan=False)
     sex: Literal["male", "female"]
     sbp_mmhg: float = Field(ge=0, le=300, allow_inf_nan=False)
     heart_rate: float = Field(ge=0, le=300, allow_inf_nan=False)
-    melena: bool = False
-    syncope: bool = False
-    hepatic_disease: bool = False
-    cardiac_failure: bool = False
+    melena: StrictBool
+    syncope: StrictBool
+    hepatic_disease: StrictBool
+    cardiac_failure: StrictBool
 
 
 @app.post("/api/gbs")
