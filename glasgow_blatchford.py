@@ -184,8 +184,10 @@ def calculate_gbs(
         "missing_fields": missing,
         "risk_category": risk,
         "recommendation": recommendation,
+        # Legacy name: this marks eligibility for clinical consideration, not clearance.
         "safe_for_outpatient": complete and total <= 1,
-        "needs_intervention": None if not complete or total > 1 else False,
+        "very_low_risk_criterion_met": complete and total <= 1,
+        "needs_intervention": None,
         # The GBS is not a calibrated individual mortality prediction model.
         "estimated_30d_mortality_percent": None,
     }
