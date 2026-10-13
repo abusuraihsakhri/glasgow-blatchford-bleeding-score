@@ -405,7 +405,7 @@ def test_bool_numeric_rejected():
 def test_batch_marks_incomplete(tmp_path):
     source = tmp_path / "batch.csv"
     output = tmp_path / "out.csv"
-    source.write_text("bun,hemoglobin,sex,sbp,heart_rate\n4,15,male,130,80\n4,,,130,80\n", encoding="utf-8")
+    source.write_text("bun,hemoglobin,sex,sbp,heart_rate,melena,syncope,hepatic_disease,cardiac_failure\n4,15,male,130,80,false,false,false,false\n4,,male,130,80,false,false,false,false\n", encoding="utf-8")
     assert process_batch(str(source), str(output)) == 2
     rows = list(csv.DictReader(output.open(encoding="utf-8")))
     assert rows[0]["is_complete"] == "True"
