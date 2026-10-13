@@ -1,201 +1,73 @@
-# Glasgow Blatchford Bleeding Score
+# Glasgow–Blatchford Bleeding Score
 
-> **Domain:** Clinical Decision Support & Biomedical Computing
-> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
+Pre-endoscopy Glasgow–Blatchford Score (GBS) calculator for adults with suspected upper gastrointestinal bleeding. The score ranges from **0 to 23** and uses blood urea, hemoglobin, sex-specific hemoglobin thresholds, systolic blood pressure, heart rate and four clinical features.
 
-<div align="center">
+The repository provides a **standalone, browser-based calculator**, a Python scoring library and CLI, batch CSV processing, and a FastAPI endpoint. A separate demonstration audit/supervisor subsystem remains available for backward compatibility; its generic thresholds are **not** clinical GBS rules.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+## Browser calculator
 
-</div>
+Open `web/index.html` locally or serve the repository's root with a static file server. The root `index.html` redirects to the calculator. The browser app is plain HTML, CSS and JavaScript: **no backend, Pyodide, or package installation is needed**.
 
----
+The repository is configured with a GitHub Pages homepage, but the live endpoint was not independently verifiable during this audit; no public availability claim is made here.
 
-## 📖 What It Does
+Enter all four numerical measurements and the hemoglobin reference category, confirm which listed clinical features are present, then select **Calculate GBS**. The app displays the total and component points. **Unchecked checkboxes are treated as absent findings**; verify clinical history before interpreting the result.
 
-Glasgow-Blatchford Score (GBS) for Upper GI Bleeding.
-Full implementation with pre-endoscopy risk stratification and 30-day mortality prediction.
+- **Urea:** mmol/L, not BUN mg/dL (do not enter a mg/dL value without conversion).
+- **Hemoglobin:** g/dL; **SBP:** mmHg; **heart rate:** beats/min.
+- **GBS 0–1:** very-low-risk group; outpatient follow-up *may* be appropriate after clinical assessment.
+- **GBS >1:** not in the very-low-risk group; admission, resuscitation, and endoscopy decisions require assessment of the whole patient.
 
-The GBS identifies patients safe for outpatient management (score 0) vs those
-requiring urgent intervention (score >= 6).
+**Safety:** GBS is not a calibrated individual mortality prediction or a substitute for urgent assessment in ongoing bleeding or hemodynamic instability. Incomplete clinical information should never support a low-risk discharge decision.
 
-Score range: 0-23 points.
+## Python and CLI
 
-References:
-  - Blatchford O, et al. A score to predict need for treatment for upper-
-    gastrointestinal haemorrhage. Lancet 2000;356:1318-21.
-  - Stanley AJ, et al. Lancet 2009;373:42-47 (validation & mortality data).
-
-Author: Dr. Abu Suraih Sakhri
-License: MIT
-
----
-
-## ⚙️ Key Capabilities & Algorithmic Modules
-
-### 🔬 Analytical Functions
-
-- **`calculate_gbs()`**: Calculate Glasgow-Blatchford Score for upper GI bleed risk stratification.
-  Validates all clinical parameters for physiological plausibility.
-
-  Parameters:
-    - `bun_mmol_l`: Blood urea nitrogen in mmol/L (0-100)
-    - `hemoglobin_g_dl`: Hemoglobin in g/dL (0-30)
-    - `sex`: 'male' or 'female' (affects hemoglobin scoring thresholds)
-    - `sbp_mmhg`: Systolic blood pressure in mmHg (0-300)
-    - `heart_rate`: Heart rate in beats per minute (0-300)
-    - `melena`: Presence of melena (black tarry stool)
-    - `syncope`: History of syncope at presentation
-    - `hepatic_disease`: Known liver disease history
-    - `cardiac_failure`: Known cardiac failure history
-
-  Returns:
-    Dict with total_score, component breakdown, risk category, recommendation,
-    and estimated 30-day mortality.
-
-- **`calculate_gbs_from_dict()`**: Calculate GBS from a dictionary of parameters (for batch/CLI use).
-- **`process_batch()`**: Process a CSV file of patients and write GBS results.
-
----
-
-## 📐 Scoring Components
-
-| Component | Criteria | Points |
-|-----------|----------|--------|
-| BUN (mmol/L) | >= 25.0 | 6 |
-| | 10.0-24.9 | 4 |
-| | 8.0-9.9 | 3 |
-| | 6.5-7.9 | 2 |
-| | < 6.5 | 0 |
-| Hemoglobin (male, g/dL) | < 10.0 | 6 |
-| | 10.0-11.9 | 3 |
-| | 12.0-12.9 | 1 |
-| | >= 13.0 | 0 |
-| Hemoglobin (female, g/dL) | < 10.0 | 6 |
-| | 10.0-11.9 | 1 |
-| | >= 12.0 | 0 |
-| SBP (mmHg) | < 90 | 3 |
-| | 90-99 | 2 |
-| | 100-109 | 1 |
-| | >= 110 | 0 |
-| Heart rate | >= 100 bpm | 1 |
-| Melena | Present | 1 |
-| Syncope | Present | 2 |
-| Hepatic disease | Present | 2 |
-| Cardiac failure | Present | 2 |
-
----
-
-## 💻 CLI Quickstart & Usage
-
-### Installation
-```bash
-pip install -e .
-# Or for development:
-pip install -e ".[dev]"
-```
-
-### 1. Single Patient Calculation
-```bash
-python cli.py single --bun 10.0 --hemoglobin 9.0 --sex male --sbp 95 --melena
-```
-
-### 2. Batch Processing
-```bash
-python cli.py batch -i patients.csv -o results.csv
-```
-
-### 3. Audit Task Processing
-```bash
-python cli.py audit --task-id TASK-001 --primary-metric 12.0 --status-descriptor NOMINAL
-```
-
-### 4. Supervisory Chat
-```bash
-python cli.py chat "Explain the scoring criteria"
-```
-
-### 5. Verify Audit Trail
-```bash
-python cli.py verify-audit
-```
-
-### 6. Start REST API Server
-```bash
-python cli.py serve --host 0.0.0.0 --port 8000
-```
-
-### Parameter Reference
-- `single`: Calculate GBS for one patient (see parameters above)
-- `batch`: Process CSV file with `-i` (input) and `-o` (output) options
-- `audit`: Process task through multi-worker supervisor
-- `chat`: Query the air-gapped supervisory assistant
-- `verify-audit`: Verify HMAC-SHA256 audit trail integrity
-- `serve`: Start FastAPI REST server
-
-### Input Data Schema (Batch CSV)
-
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `bun` | Blood urea nitrogen in mmol/L | Optional |
-| `hemoglobin` | Hemoglobin in g/dL | Optional |
-| `sex` | 'male' or 'female' | Optional (default: male) |
-| `sbp` | Systolic blood pressure in mmHg | Optional |
-| `heart_rate` | Heart rate in bpm | Optional |
-| `melena` | Presence of melena (true/false) | Optional |
-| `syncope` | History of syncope (true/false) | Optional |
-| `hepatic_disease` | Known liver disease (true/false) | Optional |
-| `cardiac_failure` | Known cardiac failure (true/false) | Optional |
-
----
-
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
-
-### Environment Variables
-
-| Variable | Description | Default |
-|:---------|:------------|:--------|
-| `AUDIT_SECRET_KEY` | Secret key for HMAC-SHA256 audit trail | Ephemeral (random per session) |
-| `MODEL_PROVIDER` | LLM provider (`mock`, `ollama`, `claude`, `openai`) | `mock` |
-
----
-
-## 🧪 Testing & Verification
-
-Run the automated test suite:
+Python 3.10+.
 
 ```bash
-pytest -v
+python -m pip install -e ".[dev]"
+python -m pytest -q
+node --test web/gbs.test.cjs  # Node.js 22+; browser algorithm tests
+python cli.py single --bun 10 --hemoglobin 9 --sex male --sbp 95 --heart-rate 104 --melena
+python cli.py batch --input sample.csv --output results.csv
 ```
 
-Execute high-throughput batch simulation benchmarks:
+In Python, `calculate_gbs(...)` returns `total_score`, `components`, `is_complete`, `missing_fields`, `risk_category`, `safe_for_outpatient` and `recommendation`. Missing numerical values produce a **partial score labeled incomplete**, never a discharge-eligible result. The retained legacy keys `needs_intervention` and `estimated_30d_mortality_percent` are always null: the score alone cannot establish those individual outcomes. The legacy `safe_for_outpatient` flag (also exposed as `very_low_risk_criterion_met`) marks the GBS threshold, **not clearance for discharge**.
+
+CSV columns: `bun` (urea mmol/L), `hemoglobin` (g/dL), `sex` (`male`/`female`), `sbp`, `heart_rate`, `melena`, `syncope`, `hepatic_disease`, `cardiac_failure`. Use `true`/`false` for all four clinical features. The batch result contains an `is_complete` field and semicolon-delimited `missing_fields`; missing sex or feature columns are never interpreted as confirmed negatives for disposition. Unexpected strings and impossible numerical values are rejected.
+
+The CLI also retains `audit`, `chat`, `verify-audit` and `serve` commands. For API use:
 
 ```bash
-python simulator.py 1000
+python cli.py serve --host 127.0.0.1 --port 8000
+# POST JSON clinical inputs to http://127.0.0.1:8000/api/gbs
+# GET http://127.0.0.1:8000/docs for the OpenAPI interface
 ```
 
----
+The `/api/gbs` endpoint requires all numerical inputs, the hemoglobin reference category and explicit true/false values for all four clinical features. It rejects unexpected extra fields, including identifiers.
 
-## 🐳 Container Deployment
+## Privacy and security
+
+The browser scoring interface sends no clinical values to a server and does not store them in local storage or cookies. No identifying data should be entered. The optional API and legacy demo supervisor run server-side and must not be exposed to public networks without appropriate security controls. The legacy regular-expression identifier screening is **not** a PHI de-identification or HIPAA compliance guarantee.
+
+The audit ledger uses HMAC-SHA256 signatures with a linked chain and verifies each signature; by default its key is ephemeral and its in-memory trail is not persistent. For a persistent deployment, supply a strong private `AUDIT_SECRET_KEY` through the environment, not source control. Rotate any secrets previously committed to repository history.
 
 ```bash
-docker build -t glasgow-blatchford-bleeding-score .
-docker run -p 8000:8000 -e AUDIT_SECRET_KEY=your-secret-key glasgow-blatchford-bleeding-score
+# Set AUDIT_SECRET_KEY securely in the environment before starting Compose.
+docker compose up --build
 ```
 
-Or using Docker Compose:
+## Technology, verification and limitations
 
-```bash
-docker-compose up -d
-```
+The static interface uses browser JavaScript and works in modern desktop/mobile browsers. Python functionality is available through the CLI or FastAPI; it does not execute in the static site. Tests run with `pytest` and Node's built-in test runner in GitHub Actions on Python 3.10, 3.11 and 3.12.
+
+The calculation is a pre-endoscopy risk score; it is **not** an automated triage or treatment algorithm. The generic supervisor's warnings do not constitute a clinical protocol.
+
+## Clinical references
+
+- Blatchford O, et al. A risk score to predict need for treatment for upper-gastrointestinal haemorrhage. *Lancet*. 2000;356:1318–1321.
+- [Laine L, et al. ACG Clinical Guideline: Upper Gastrointestinal and Ulcer Bleeding. *Am J Gastroenterol*. 2021.](https://pubmed.ncbi.nlm.nih.gov/33929377/)
+- [Gralnek IM, et al. ESGE guideline update on nonvariceal upper gastrointestinal hemorrhage. *Endoscopy*. 2021.](https://pubmed.ncbi.nlm.nih.gov/33567467/)
+
+## License
+
+MIT. See [LICENSE](LICENSE).

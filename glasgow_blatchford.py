@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
 Glasgow-Blatchford Score (GBS) for Upper GI Bleeding
-Full implementation with pre-endoscopy risk stratification and 30-day mortality prediction.
+Pre-endoscopy risk stratification for patients with suspected upper GI bleeding.
 
-The GBS identifies patients safe for outpatient management (score 0) vs those
-requiring urgent intervention (score >= 6).
+The GBS identifies very-low-risk patients (score 0-1) who may be considered
+for outpatient management following appropriate clinical assessment. The score
+does not by itself determine admission, endoscopy timing, or mortality risk.
 
 Score range: 0-23 points.
 
@@ -29,7 +30,7 @@ def _validate_clinical_param(name: str, value: Optional[float], min_val: float, 
     """Validate a clinical parameter is within physiologically plausible bounds."""
     if value is None:
         return
-    if not isinstance(value, (int, float)) or math.isnan(value) or math.isinf(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         raise ValueError(f"{name} must be a finite number, got {value!r}")
     if value < min_val or value > max_val:
         raise ValueError(f"{name} value {value} is outside plausible range [{min_val}, {max_val}]")
@@ -50,7 +51,7 @@ def calculate_gbs(
     Calculate Glasgow-Blatchford Score for upper GI bleed risk stratification.
 
     Parameters:
-        bun_mmol_l: Blood urea nitrogen in mmol/L
+        bun_mmol_l: Blood urea concentration in mmol/L (not BUN mg/dL)
         hemoglobin_g_dl: Hemoglobin in g/dL
         sex: 'male' or 'female' (affects hemoglobin scoring thresholds)
         sbp_mmhg: Systolic blood pressure in mmHg
@@ -62,7 +63,7 @@ def calculate_gbs(
 
     Returns:
         Dict with total_score, component breakdown, risk category, recommendation,
-        and estimated 30-day mortality.
+        and completeness status (not a calibrated mortality estimate).
 
     Raises:
         ValueError: If any parameter is outside physiologically plausible bounds.
@@ -76,6 +77,10 @@ def calculate_gbs(
     sex_lower = str(sex).lower().strip()
     if sex_lower not in ("male", "female"):
         raise ValueError(f"sex must be 'male' or 'female', got {sex!r}")
+    for name, value in (("melena", melena), ("syncope", syncope),
+                        ("hepatic_disease", hepatic_disease), ("cardiac_failure", cardiac_failure)):
+        if not isinstance(value, bool):
+            raise ValueError(f"{name} must be a boolean")
 
     components = {}
     total = 0
@@ -101,7 +106,7 @@ def calculate_gbs(
                 components["hemoglobin"] = 6
             elif hemoglobin_g_dl < 12.0:
                 components["hemoglobin"] = 3
-            elif hemoglobin_g_dl <= 12.9:
+            elif hemoglobin_g_dl < 13.0:
                 components["hemoglobin"] = 1
             else:
                 components["hemoglobin"] = 0
@@ -120,7 +125,7 @@ def calculate_gbs(
             components["sbp"] = 3
         elif sbp_mmhg < 100:
             components["sbp"] = 2
-        elif sbp_mmhg <= 109:
+        elif sbp_mmhg < 110:
             components["sbp"] = 1
         else:
             components["sbp"] = 0
@@ -144,68 +149,76 @@ def calculate_gbs(
     components["cardiac_failure"] = 2 if cardiac_failure else 0
     total += components["cardiac_failure"]
 
-    # --- Risk stratification ---
-    if total == 0:
+    # A GBS of 0-1 identifies a very-low-risk group; beyond this threshold,
+    # the score alone does not mandate intervention or specify a mortality rate.
+    required = {
+        "bun_mmol_l": bun_mmol_l,
+        "hemoglobin_g_dl": hemoglobin_g_dl,
+        "sbp_mmhg": sbp_mmhg,
+        "heart_rate": heart_rate,
+    }
+    missing = [name for name, value in required.items() if value is None]
+    complete = not missing
+    if not complete:
+        risk = "Incomplete"
+        recommendation = "Complete all four measurements before using GBS for disposition decisions."
+    elif total <= 1:
         risk = "Very Low"
-        recommendation = "Consider outpatient management. Outpatient endoscopy if clinically indicated."
-        needs_intervention = False
-    elif total <= 3:
-        risk = "Low"
-        recommendation = "Low risk. Consider outpatient management with close follow-up or short observation."
-        needs_intervention = False
-    elif total <= 5:
-        risk = "Moderate"
-        recommendation = "Moderate risk. Inpatient admission recommended. Urgent endoscopy within 24 hours."
-        needs_intervention = True
-    elif total <= 8:
-        risk = "High"
-        recommendation = "High risk. Inpatient care with urgent endoscopy. Consider ICU if hemodynamically unstable."
-        needs_intervention = True
+        recommendation = (
+            "GBS 0-1: outpatient follow-up may be appropriate after clinical "
+            "assessment; active bleeding, instability, and other concerns override the score."
+        )
     else:
-        risk = "Very High"
-        recommendation = "Very high risk. ICU admission. Immediate resuscitation and urgent endoscopy."
-        needs_intervention = True
-
-    # --- 30-day mortality estimation (Stanley et al. 2009) ---
-    if total == 0:
-        mortality_30d = 0.0
-    elif total <= 3:
-        mortality_30d = 0.5
-    elif total <= 5:
-        mortality_30d = 2.0
-    elif total <= 8:
-        mortality_30d = 5.0
-    elif total <= 11:
-        mortality_30d = 10.0
-    else:
-        mortality_30d = 20.0
+        risk = "Not Very Low"
+        recommendation = (
+            "GBS above 1: the very-low-risk outpatient criterion is not met. "
+            "Assess resuscitation, admission, and endoscopy based on the full clinical picture."
+        )
 
     return {
         "tool": "glasgow-blatchford-score",
         "total_score": total,
         "max_possible_score": 23,
         "components": components,
+        "is_complete": complete,
+        "missing_fields": missing,
         "risk_category": risk,
         "recommendation": recommendation,
-        "safe_for_outpatient": total == 0,
-        "needs_intervention": needs_intervention,
-        "estimated_30d_mortality_percent": mortality_30d,
+        # Legacy name: this marks eligibility for clinical consideration, not clearance.
+        "safe_for_outpatient": complete and total <= 1,
+        "very_low_risk_criterion_met": complete and total <= 1,
+        "needs_intervention": None,
+        # The GBS is not a calibrated individual mortality prediction model.
+        "estimated_30d_mortality_percent": None,
     }
 
 
 def calculate_gbs_from_dict(params: Dict[str, Any]) -> Dict[str, Any]:
     """Calculate GBS from a dictionary of parameters (for batch/CLI use)."""
-    return calculate_gbs(
-        bun_mmol_l=_float_or_none(params.get("bun") or params.get("bun_mmol_l")),
-        hemoglobin_g_dl=_float_or_none(params.get("hemoglobin") or params.get("hemoglobin_g_dl")),
-        sex=str(params.get("sex", "male")),
-        sbp_mmhg=_float_or_none(params.get("sbp") or params.get("sbp_mmhg")),
-        heart_rate=_float_or_none(params.get("heart_rate") or params.get("hr")),
+    result = calculate_gbs(
+        bun_mmol_l=_float_or_none(params.get("bun", params.get("bun_mmol_l"))),
+        hemoglobin_g_dl=_float_or_none(params.get("hemoglobin", params.get("hemoglobin_g_dl"))),
+        sex=str(params.get("sex") or "male"),
+        sbp_mmhg=_float_or_none(params.get("sbp", params.get("sbp_mmhg"))),
+        heart_rate=_float_or_none(params.get("heart_rate", params.get("hr"))),
         melena=_bool_str(params.get("melena")),
         syncope=_bool_str(params.get("syncope")),
         hepatic_disease=_bool_str(params.get("hepatic_disease")),
         cardiac_failure=_bool_str(params.get("cardiac_failure")),
     )
+
+    # CSV rows must explicitly state sex and each clinical feature. An absent
+    # column is unknown, not a confirmed negative clinical finding.
+    omitted = [key for key in ("sex", "melena", "syncope", "hepatic_disease", "cardiac_failure")
+               if params.get(key) is None or params.get(key) == ""]
+    if omitted:
+        result["is_complete"] = False
+        result["missing_fields"].extend(omitted)
+        result["risk_category"] = "Incomplete"
+        result["safe_for_outpatient"] = False
+        result["needs_intervention"] = None
+        result["recommendation"] = "Complete all numeric, sex, and clinical-feature fields before disposition assessment."
+    return result
 
 
 def process_batch(input_csv: str, output_csv: str) -> int:
@@ -216,7 +229,7 @@ def process_batch(input_csv: str, output_csv: str) -> int:
         rows = list(reader)
 
     out_fields = fieldnames + [
-        "gbs_total_score", "risk_category", "safe_for_outpatient",
+        "gbs_total_score", "is_complete", "missing_fields", "risk_category", "safe_for_outpatient",
         "needs_intervention", "estimated_30d_mortality_percent", "recommendation",
     ]
     out_rows = []
@@ -224,6 +237,8 @@ def process_batch(input_csv: str, output_csv: str) -> int:
         result = calculate_gbs_from_dict(r)
         row_dict = dict(r)
         row_dict["gbs_total_score"] = result["total_score"]
+        row_dict["is_complete"] = result["is_complete"]
+        row_dict["missing_fields"] = ";".join(result["missing_fields"])
         row_dict["risk_category"] = result["risk_category"]
         row_dict["safe_for_outpatient"] = result["safe_for_outpatient"]
         row_dict["needs_intervention"] = result["needs_intervention"]
@@ -252,7 +267,7 @@ def main(argv=None):
 
     # Single calculation
     p_single = subparsers.add_parser("single", help="Calculate GBS for a single patient")
-    p_single.add_argument("--bun", type=float, help="BUN in mmol/L")
+    p_single.add_argument("--bun", type=float, help="Blood urea in mmol/L (not BUN mg/dL)")
     p_single.add_argument("--hemoglobin", type=float, help="Hemoglobin in g/dL")
     p_single.add_argument("--sex", choices=["male", "female"], default="male",
                           help="Patient sex (affects hemoglobin thresholds)")
@@ -347,14 +362,19 @@ def _float_or_none(val) -> Optional[float]:
         return None
     try:
         return float(val)
-    except (ValueError, TypeError):
-        return None
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"Invalid numeric value: {val!r}") from exc
 
 
 def _bool_str(val) -> bool:
     if val is None:
         return False
-    return str(val).lower().strip() in ("true", "1", "yes", "y")
+    text = str(val).lower().strip()
+    if text in ("true", "1", "yes", "y"):
+        return True
+    if text in ("false", "0", "no", "n", ""):
+        return False
+    raise ValueError(f"Invalid boolean value: {val!r}")
 
 
 if __name__ == "__main__":

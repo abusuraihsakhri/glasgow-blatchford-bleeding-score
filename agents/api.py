@@ -1,10 +1,11 @@
 """
 FastAPI REST API Server for Glasgow Blatchford Bleeding Score.
 """
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Literal
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from .base import AuditLogger, PHIGuard
+from glasgow_blatchford import calculate_gbs
 from .models import SystemTaskPayload, ConsensusDossier
 from .supervisor import SystemSupervisor
 
@@ -12,8 +13,8 @@ supervisor = SystemSupervisor(model_provider="mock")
 
 app = FastAPI(
     title="Glasgow Blatchford Bleeding Score API",
-    description="Enterprise Distributed Component Platform (Clinical & Biomedical AI)",
-    version="3.0.0-ENTERPRISE",
+    description="Clinical GBS calculator with separate legacy demonstration audit endpoints",
+    version="4.0.0",
 )
 
 
@@ -21,9 +22,30 @@ class ChatRequest(BaseModel):
     query: str
 
 
+
+class GBSRequest(BaseModel):
+    """Strict input: all GBS features are explicitly assessed."""
+    model_config = ConfigDict(extra="forbid")
+    bun_mmol_l: float = Field(ge=0, le=100, allow_inf_nan=False)
+    hemoglobin_g_dl: float = Field(ge=0, le=30, allow_inf_nan=False)
+    sex: Literal["male", "female"]
+    sbp_mmhg: float = Field(ge=0, le=300, allow_inf_nan=False)
+    heart_rate: float = Field(ge=0, le=300, allow_inf_nan=False)
+    melena: StrictBool
+    syncope: StrictBool
+    hepatic_disease: StrictBool
+    cardiac_failure: StrictBool
+
+
+@app.post("/api/gbs")
+def api_gbs(payload: GBSRequest):
+    """Calculate a complete, validated Glasgow–Blatchford Score."""
+    return calculate_gbs(**payload.model_dump())
+
+
 @app.get("/health")
 def health():
-    return {"status": "HEALTHY", "service": "glasgow-blatchford-bleeding-score", "domain": "Clinical & Biomedical AI", "standard": "CAP / CLSI / ISO Standards", "version": "3.0.0-ENTERPRISE"}
+    return {"status": "ok", "service": "glasgow-blatchford-bleeding-score", "version": "4.0.0"}
 
 
 @app.get("/metrics")
@@ -31,7 +53,7 @@ def metrics():
     return {
         "dossiers_processed_total": len(supervisor.dossier_registry),
         "audit_blocks_total": len(AuditLogger.get_trail()),
-        "system_status": "NOMINAL_OPTIMAL"
+        "system_status": "RUNNING"
     }
 
 

@@ -1,4 +1,4 @@
-Patient_ID,v1,v2,v3
-PT-101,14.5,4.2,1.8
-PT-102,8.0,2.1,0.5
-PT-103,28.4,12.0,5.5
+example_id,bun,hemoglobin,sex,sbp,heart_rate,melena,syncope,hepatic_disease,cardiac_failure
+EX-001,4.0,14.0,male,130,78,false,false,false,false
+EX-002,4.0,14.0,male,130,78,true,false,false,false
+EX-003,15.0,9.0,female,85,115,true,true,false,false

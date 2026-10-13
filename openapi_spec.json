@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Glasgow Blatchford Bleeding Score API",
-    "description": "Enterprise Distributed Component Platform (Clinical & Cryptographic AI) adhering to CAP / CLSI / NIST Standards.",
-    "version": "3.0.0-ENTERPRISE",
+    "description": "Pre-endoscopy GBS calculator with separate legacy demonstration endpoints. The clinical score is not a mortality prediction.",
+    "version": "4.0.0",
     "contact": {
       "name": "Dr. Abu Suraih Sakhri",
       "url": "https://github.com/abusuraihsakhri"
@@ -15,24 +15,24 @@
         "summary": "Health and metadata check",
         "responses": {
           "200": {
-            "description": "System optimal"
+            "description": "Service process available"
           }
         }
       }
     },
     "/metrics": {
       "get": {
-        "summary": "Prometheus operational metrics",
+        "summary": "Legacy supervisor counters (JSON)",
         "responses": {
           "200": {
-            "description": "Prometheus text metrics"
+            "description": "JSON counts for the demonstration supervisor"
           }
         }
       }
     },
     "/api/audit": {
       "post": {
-        "summary": "Dispatch task payload across specialized workers",
+        "summary": "Evaluate a demonstration supervisor task (not clinical GBS)",
         "requestBody": {
           "content": {
             "application/json": {
@@ -76,7 +76,7 @@
     },
     "/api/chat": {
       "post": {
-        "summary": "Air-gapped supervisory conversational assistant",
+        "summary": "Query deterministic demonstration supervisor",
         "requestBody": {
           "content": {
             "application/json": {
@@ -107,6 +107,84 @@
         "responses": {
           "200": {
             "description": "Cryptographic audit trail"
+          }
+        }
+      }
+    },
+    "/api/gbs": {
+      "post": {
+        "summary": "Calculate Glasgow–Blatchford Score from complete clinical inputs",
+        "description": "GBS 0–1 is a very-low-risk group; disposition still requires clinical judgment. Does not predict individual mortality.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "bun_mmol_l": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Blood urea mmol/L; not BUN mg/dL"
+                  },
+                  "hemoglobin_g_dl": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 30
+                  },
+                  "sex": {
+                    "type": "string",
+                    "enum": [
+                      "male",
+                      "female"
+                    ]
+                  },
+                  "sbp_mmhg": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 300
+                  },
+                  "heart_rate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 300
+                  },
+                  "melena": {
+                    "type": "boolean"
+                  },
+                  "syncope": {
+                    "type": "boolean"
+                  },
+                  "hepatic_disease": {
+                    "type": "boolean"
+                  },
+                  "cardiac_failure": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "bun_mmol_l",
+                  "hemoglobin_g_dl",
+                  "sex",
+                  "sbp_mmhg",
+                  "heart_rate",
+                  "melena",
+                  "syncope",
+                  "hepatic_disease",
+                  "cardiac_failure"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "GBS score with component points, completeness and risk interpretation"
+          },
+          "422": {
+            "description": "Required field missing or invalid"
           }
         }
       }
