@@ -152,20 +152,16 @@
                     "maximum": 300
                   },
                   "melena": {
-                    "type": "boolean",
-                    "default": false
+                    "type": "boolean"
                   },
                   "syncope": {
-                    "type": "boolean",
-                    "default": false
+                    "type": "boolean"
                   },
                   "hepatic_disease": {
-                    "type": "boolean",
-                    "default": false
+                    "type": "boolean"
                   },
                   "cardiac_failure": {
-                    "type": "boolean",
-                    "default": false
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -173,7 +169,11 @@
                   "hemoglobin_g_dl",
                   "sex",
                   "sbp_mmhg",
-                  "heart_rate"
+                  "heart_rate",
+                  "melena",
+                  "syncope",
+                  "hepatic_disease",
+                  "cardiac_failure"
                 ]
               }
             }
