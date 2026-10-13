@@ -43,7 +43,7 @@ python cli.py serve --host 127.0.0.1 --port 8000
 # GET http://127.0.0.1:8000/docs for the OpenAPI interface
 ```
 
-The `/api/gbs` endpoint requires complete numerical data and sex; clinical features default to absent if omitted. A real clinical workflow must verify all feature statuses.
+The `/api/gbs` endpoint requires all numerical inputs, the hemoglobin reference category and explicit true/false values for all four clinical features. It rejects unexpected extra fields, including identifiers.
 
 ## Privacy and security
 
