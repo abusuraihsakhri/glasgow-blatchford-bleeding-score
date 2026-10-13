@@ -51,7 +51,7 @@ def calculate_gbs(
     Calculate Glasgow-Blatchford Score for upper GI bleed risk stratification.
 
     Parameters:
-        bun_mmol_l: Blood urea nitrogen in mmol/L
+        bun_mmol_l: Blood urea concentration in mmol/L (not BUN mg/dL)
         hemoglobin_g_dl: Hemoglobin in g/dL
         sex: 'male' or 'female' (affects hemoglobin scoring thresholds)
         sbp_mmhg: Systolic blood pressure in mmHg
@@ -265,7 +265,7 @@ def main(argv=None):
 
     # Single calculation
     p_single = subparsers.add_parser("single", help="Calculate GBS for a single patient")
-    p_single.add_argument("--bun", type=float, help="BUN in mmol/L")
+    p_single.add_argument("--bun", type=float, help="Blood urea in mmol/L (not BUN mg/dL)")
     p_single.add_argument("--hemoglobin", type=float, help="Hemoglobin in g/dL")
     p_single.add_argument("--sex", choices=["male", "female"], default="male",
                           help="Patient sex (affects hemoglobin thresholds)")
