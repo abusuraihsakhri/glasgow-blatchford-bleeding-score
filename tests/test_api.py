@@ -23,6 +23,8 @@ def test_complete_gbs_api():
     assert data["is_complete"] is True
     assert data["total_score"] == 1
     assert data["safe_for_outpatient"] is True
+    assert data["very_low_risk_criterion_met"] is True
+    assert data["needs_intervention"] is None
     assert data["estimated_30d_mortality_percent"] is None
 
 
