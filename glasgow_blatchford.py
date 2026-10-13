@@ -193,7 +193,7 @@ def calculate_gbs(
 
 def calculate_gbs_from_dict(params: Dict[str, Any]) -> Dict[str, Any]:
     """Calculate GBS from a dictionary of parameters (for batch/CLI use)."""
-    return calculate_gbs(
+    result = calculate_gbs(
         bun_mmol_l=_float_or_none(params.get("bun", params.get("bun_mmol_l"))),
         hemoglobin_g_dl=_float_or_none(params.get("hemoglobin", params.get("hemoglobin_g_dl"))),
         sex=str(params.get("sex") or "male"),
@@ -204,6 +204,19 @@ def calculate_gbs_from_dict(params: Dict[str, Any]) -> Dict[str, Any]:
         hepatic_disease=_bool_str(params.get("hepatic_disease")),
         cardiac_failure=_bool_str(params.get("cardiac_failure")),
     )
+
+    # CSV rows must explicitly state sex and each clinical feature. An absent
+    # column is unknown, not a confirmed negative clinical finding.
+    omitted = [key for key in ("sex", "melena", "syncope", "hepatic_disease", "cardiac_failure")
+               if params.get(key) is None or params.get(key) == ""]
+    if omitted:
+        result["is_complete"] = False
+        result["missing_fields"].extend(omitted)
+        result["risk_category"] = "Incomplete"
+        result["safe_for_outpatient"] = False
+        result["needs_intervention"] = None
+        result["recommendation"] = "Complete all numeric, sex, and clinical-feature fields before disposition assessment."
+    return result
 
 
 def process_batch(input_csv: str, output_csv: str) -> int:
