@@ -31,7 +31,7 @@ python cli.py single --bun 10 --hemoglobin 9 --sex male --sbp 95 --heart-rate 10
 python cli.py batch --input sample.csv --output results.csv
 ```
 
-In Python, `calculate_gbs(...)` returns `total_score`, `components`, `is_complete`, `missing_fields`, `risk_category`, `safe_for_outpatient` and `recommendation`. Missing numerical values produce a **partial score labeled incomplete**, never a discharge-eligible result. The retained legacy keys `needs_intervention` and `estimated_30d_mortality_percent` are null where those clinical outcomes cannot be established from GBS alone.
+In Python, `calculate_gbs(...)` returns `total_score`, `components`, `is_complete`, `missing_fields`, `risk_category`, `safe_for_outpatient` and `recommendation`. Missing numerical values produce a **partial score labeled incomplete**, never a discharge-eligible result. The retained legacy keys `needs_intervention` and `estimated_30d_mortality_percent` are always null: the score alone cannot establish those individual outcomes. The legacy `safe_for_outpatient` flag (also exposed as `very_low_risk_criterion_met`) marks the GBS threshold, **not clearance for discharge**.
 
 CSV columns: `bun` (urea mmol/L), `hemoglobin` (g/dL), `sex` (`male`/`female`), `sbp`, `heart_rate`, `melena`, `syncope`, `hepatic_disease`, `cardiac_failure`. Use `true`/`false` for all four clinical features. The batch result contains an `is_complete` field and semicolon-delimited `missing_fields`; missing sex or feature columns are never interpreted as confirmed negatives for disposition. Unexpected strings and impossible numerical values are rejected.
 
