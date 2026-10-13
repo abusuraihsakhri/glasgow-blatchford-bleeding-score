@@ -153,20 +153,21 @@ class TestRiskStratification:
     def test_score_low_risk(self):
         result = calculate_gbs(melena=True, heart_rate=105)
         assert result["total_score"] == 2
-        assert result["risk_category"] == "Low"
+        assert result["risk_category"] == "Incomplete"
+        assert result["safe_for_outpatient"] is False
 
     def test_score_moderate_risk(self):
         result = calculate_gbs(bun_mmol_l=9.0, sbp_mmhg=105, melena=True)
         assert result["total_score"] == 5
-        assert result["risk_category"] == "Moderate"
-        assert result["needs_intervention"] is True
+        assert result["risk_category"] == "Incomplete"
+        assert result["needs_intervention"] is None
 
     def test_score_high_risk(self):
         result = calculate_gbs(bun_mmol_l=15.0, hemoglobin_g_dl=11.0,
                                sex="male", sbp_mmhg=95, heart_rate=110,
                                melena=True)
         assert result["total_score"] >= 6
-        assert result["risk_category"] in ("High", "Very High")
+        assert result["risk_category"] == "Not Very Low"
 
     def test_max_score_23(self):
         result = calculate_gbs(
@@ -186,11 +187,12 @@ class TestRiskStratification:
 class TestMortality:
     def test_mortality_zero_score(self):
         result = calculate_gbs()
-        assert result["estimated_30d_mortality_percent"] == 0.0
+        assert result["estimated_30d_mortality_percent"] is None
+        assert result["is_complete"] is False
 
     def test_mortality_low_score(self):
         result = calculate_gbs(melena=True)
-        assert result["estimated_30d_mortality_percent"] == 0.5
+        assert result["estimated_30d_mortality_percent"] is None
 
     def test_mortality_high_score(self):
         result = calculate_gbs(
@@ -199,7 +201,7 @@ class TestMortality:
             melena=True, syncope=True,
             hepatic_disease=True, cardiac_failure=True,
         )
-        assert result["estimated_30d_mortality_percent"] == 20.0
+        assert result["estimated_30d_mortality_percent"] is None
 
 
 # =============================================================================
@@ -261,6 +263,7 @@ class TestFromDict:
     def test_from_dict_empty(self):
         result = calculate_gbs_from_dict({})
         assert result["total_score"] == 0
+        assert result["is_complete"] is False
 
 
 # =============================================================================
@@ -319,6 +322,7 @@ class TestInputValidation:
     def test_none_values_accepted(self):
         result = calculate_gbs(bun_mmol_l=None, hemoglobin_g_dl=None)
         assert result["total_score"] == 0
+        assert result["is_complete"] is False
 
 
 # =============================================================================
@@ -345,6 +349,68 @@ class TestExtendedCLI:
     def test_cli_verify_audit(self):
         ret = main(["verify-audit"])
         assert ret == 0
+
+
+
+# Clinical safety regression tests
+def test_complete_score_one_is_very_low_risk():
+    r = calculate_gbs(bun_mmol_l=4, hemoglobin_g_dl=14, sex="male",
+                      sbp_mmhg=125, heart_rate=75, melena=True)
+    assert r["is_complete"] is True
+    assert r["total_score"] == 1
+    assert r["safe_for_outpatient"] is True
+    assert r["needs_intervention"] is False
+
+
+def test_complete_score_two_not_very_low_risk():
+    r = calculate_gbs(bun_mmol_l=4, hemoglobin_g_dl=14, sex="male",
+                      sbp_mmhg=125, heart_rate=75, syncope=True)
+    assert r["total_score"] == 2
+    assert r["risk_category"] == "Not Very Low"
+    assert r["safe_for_outpatient"] is False
+    assert r["needs_intervention"] is None
+
+
+def test_missing_measurements_cannot_support_disposition():
+    r = calculate_gbs(bun_mmol_l=4, melena=False)
+    assert r["is_complete"] is False
+    assert "hemoglobin_g_dl" in r["missing_fields"]
+    assert r["safe_for_outpatient"] is False
+
+
+def test_fractional_score_thresholds():
+    r = calculate_gbs(bun_mmol_l=4, hemoglobin_g_dl=12.99,
+                      sex="male", sbp_mmhg=109.99, heart_rate=99)
+    assert r["components"]["hemoglobin"] == 1
+    assert r["components"]["sbp"] == 1
+
+
+def test_invalid_batch_values_raise():
+    with pytest.raises(ValueError, match="Invalid numeric value"):
+        calculate_gbs_from_dict({"bun": "garbage"})
+    with pytest.raises(ValueError, match="Invalid boolean value"):
+        calculate_gbs_from_dict({"melena": "possibly"})
+
+
+def test_boolean_flag_validation():
+    with pytest.raises(ValueError, match="melena must be a boolean"):
+        calculate_gbs(melena="false")
+
+
+def test_bool_numeric_rejected():
+    with pytest.raises(ValueError, match="finite number"):
+        calculate_gbs(bun_mmol_l=True)
+
+
+def test_batch_marks_incomplete(tmp_path):
+    source = tmp_path / "batch.csv"
+    output = tmp_path / "out.csv"
+    source.write_text("bun,hemoglobin,sex,sbp,heart_rate\\n4,15,male,130,80\\n4,,,130,80\\n", encoding="utf-8")
+    assert process_batch(str(source), str(output)) == 2
+    rows = list(csv.DictReader(output.open(encoding="utf-8")))
+    assert rows[0]["is_complete"] == "True"
+    assert rows[1]["is_complete"] == "False"
+    assert "hemoglobin_g_dl" in rows[1]["missing_fields"]
 
 
 if __name__ == "__main__":
